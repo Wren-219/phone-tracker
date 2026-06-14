@@ -42,7 +42,7 @@ export default async function handler(req) {
   }
 
   // GET 查询记录
-  const { result: keys } = await redis(['keys', 'log:*']);
+  const { result: keys } = await redis(['keys', 'log%3A*']);
   const logs = [];
   if (keys && keys.length > 0) {
     for (const k of keys) {
