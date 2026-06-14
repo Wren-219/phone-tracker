@@ -5,7 +5,8 @@ export default async function handler(req) {
   const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 
   async function redis(cmd) {
-    const r = await fetch(`${REDIS_URL}/${cmd.map(encodeURIComponent).join('/')}`, {
+    const encoded = cmd.map(c => encodeURIComponent(String(c)));
+    const r = await fetch(`${REDIS_URL}/${encoded.join('/')}`, {
       headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
     });
     return r.json();
@@ -14,26 +15,29 @@ export default async function handler(req) {
   if (req.method === 'POST') {
     const body = await req.json();
     const app = body.app;
-    const now = new Date().toISOString();
-    
+    const now = Date.now();
+    const nowISO = new Date(now).toISOString();
     if (!app) return new Response(JSON.stringify({ error: 'no app' }), { status: 400 });
-    
-    const stateKey = `state:${app}`;
+
+    const stateKey = `state_${app}`;
+    const startKey = `start_${app}`;
     const { result: state } = await redis(['get', stateKey]);
 
     if (state === 'open') {
-      const { result: start } = await redis(['get', `start:${app}`]);
-      if (start) {
-        const duration = Math.round((Date.now() - new Date(start)) / 60000);
-        const logKey = `LOG${Date.now()}`;
-        await redis(['set', logKey, `${app}|${start}|${now}|${duration}分钟`]);
+      const { result: startStr } = await redis(['get', startKey]);
+      if (startStr) {
+        const startTime = parseInt(startStr);
+        const duration = Math.round((now - startTime) / 60000);
+        const logKey = `LOG${now}`;
+        const logVal = JSON.stringify({ app, start: new Date(startTime).toISOString(), end: nowISO, duration });
+        await redis(['set', logKey, logVal]);
         await redis(['expire', logKey, '86400']);
-        await redis(['del', `start:${app}`]);
+        await redis(['del', startKey]);
       }
       await redis(['set', stateKey, 'closed']);
     } else {
       await redis(['set', stateKey, 'open']);
-      await redis(['set', `start:${app}`, now]);
+      await redis(['set', startKey, String(now)]);
     }
 
     return new Response(JSON.stringify({ ok: true, app }), {
@@ -41,23 +45,17 @@ export default async function handler(req) {
     });
   }
 
-  // GET 查询记录
   const { result: keys } = await redis(['keys', 'LOG*']);
   const logs = [];
   if (keys && keys.length > 0) {
     for (const k of keys) {
       const { result: val } = await redis(['get', k]);
       if (val) {
-      const parts = val.split('|');
-logs.push({ 
-  app: decodeURIComponent(parts[0]), 
-  start: parts[1], 
-  end: parts[2], 
-  duration: parts[3] 
-});
+        try { logs.push(JSON.parse(val)); } catch {}
       }
     }
   }
+  logs.sort((a, b) => new Date(b.start) - new Date(a.start));
 
   return new Response(JSON.stringify({ logs }), {
     headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
