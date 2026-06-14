@@ -54,7 +54,7 @@ export default async function handler(req) {
     for (const k of keys) {
       const { result: val } = await redis(['get', k]);
       if (val) {
-        try { logs.push(JSON.parse(val)); } catch {}
+        try { logs.push(JSON.parse(decodeURIComponent(val))); } catch {}
       }
     }
   }
