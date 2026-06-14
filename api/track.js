@@ -48,8 +48,13 @@ export default async function handler(req) {
     for (const k of keys) {
       const { result: val } = await redis(['get', k]);
       if (val) {
-        const [appName, start, end, duration] = val.split('|');
-        logs.push({ app: appName, start, end, duration });
+      const parts = val.split('|');
+logs.push({ 
+  app: decodeURIComponent(parts[0]), 
+  start: parts[1], 
+  end: parts[2], 
+  duration: parts[3] 
+});
       }
     }
   }
