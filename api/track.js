@@ -25,7 +25,7 @@ export default async function handler(req) {
       const { result: start } = await redis(['get', `start:${app}`]);
       if (start) {
         const duration = Math.round((Date.now() - new Date(start)) / 60000);
-        const logKey = `log:${Date.now()}`;
+        const logKey = `LOG${Date.now()}`;
         await redis(['set', logKey, `${app}|${start}|${now}|${duration}分钟`]);
         await redis(['expire', logKey, '86400']);
         await redis(['del', `start:${app}`]);
@@ -42,7 +42,7 @@ export default async function handler(req) {
   }
 
   // GET 查询记录
-  const { result: keys } = await redis(['keys', 'log%3A*']);
+  const { result: keys } = await redis(['keys', 'LOG*']);
   const logs = [];
   if (keys && keys.length > 0) {
     for (const k of keys) {
