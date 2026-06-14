@@ -5,12 +5,15 @@ export default async function handler(req) {
   const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 
   async function redis(cmd) {
-    const encoded = cmd.map(c => encodeURIComponent(String(c)));
-    const r = await fetch(`${REDIS_URL}/${encoded.join('/')}`, {
-      headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
-    });
-    return r.json();
-  }
+  const [command, ...args] = cmd;
+  const encodedArgs = args.map((a, i) =>
+    command === 'set' && i === 1 ? a : encodeURIComponent(String(a))
+  );
+  const r = await fetch(`${REDIS_URL}/${command}/${encodedArgs.join('/')}`, {
+    headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
+  });
+  return r.json();
+}
 
   if (req.method === 'POST') {
     const body = await req.json();
