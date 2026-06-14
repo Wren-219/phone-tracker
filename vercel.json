@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/track.js": {
+      "runtime": "edge"
+    }
+  }
+}
